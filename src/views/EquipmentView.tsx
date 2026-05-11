@@ -19,6 +19,8 @@ export default function EquipmentView({ store }: { store: ReturnType<typeof useD
   const { equipment, setEquipment } = store;
   const [isAdding, setIsAdding] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   
   // Form State
   const [form, setForm] = useState<Partial<Equipment>>({
@@ -73,10 +75,12 @@ export default function EquipmentView({ store }: { store: ReturnType<typeof useD
     setEquipment(equipment.filter(e => e.id !== id));
   };
 
-  const filteredEquipment = equipment.filter(e => 
-    e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    e.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredEquipment = equipment.filter(e => {
+    const matchesSearch = e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         e.category.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory === 'All' || e.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   return (
     <div className="space-y-8 pb-10">
@@ -113,13 +117,69 @@ export default function EquipmentView({ store }: { store: ReturnType<typeof useD
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <button className={`flex items-center gap-2 px-6 py-3.5 rounded-2xl text-sm font-bold transition-colors ${
-            store.isDark ? 'bg-white/5 hover:bg-white/10 text-gray-400' : 'bg-gray-50 hover:bg-gray-100 text-gray-600'
-          }`}>
-            <Filter size={18} />
-            Filter
-            <ChevronDown size={14} />
-          </button>
+          <div className="relative">
+            <button 
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              className={`flex items-center gap-2 px-6 py-3.5 rounded-2xl text-sm font-bold transition-colors ${
+                store.isDark ? 'bg-white/5 hover:bg-white/10 text-gray-400' : 'bg-gray-50 hover:bg-gray-100 text-gray-600'
+              } ${selectedCategory !== 'All' ? '!text-blue-500 !bg-blue-500/5' : ''}`}
+            >
+              <Filter size={18} />
+              {selectedCategory === 'All' ? 'Filter' : selectedCategory}
+              <ChevronDown size={14} className={`transition-transform duration-200 ${isFilterOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            <AnimatePresence>
+              {isFilterOpen && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-40" 
+                    onClick={() => setIsFilterOpen(false)}
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className={`absolute right-0 mt-2 w-48 rounded-2xl shadow-xl z-50 border overflow-hidden transition-colors ${
+                      store.isDark ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'
+                    }`}
+                  >
+                    <div className="p-2 space-y-1">
+                      <button
+                        onClick={() => {
+                          setSelectedCategory('All');
+                          setIsFilterOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-xs font-bold rounded-xl transition-colors ${
+                          selectedCategory === 'All'
+                            ? (store.isDark ? 'bg-white text-black' : 'bg-black text-white')
+                            : (store.isDark ? 'hover:bg-white/5 text-gray-400' : 'hover:bg-gray-50 text-gray-600')
+                        }`}
+                      >
+                        All Categories
+                      </button>
+                      {categories.map(cat => (
+                        <button
+                          key={cat}
+                          onClick={() => {
+                            setSelectedCategory(cat);
+                            setIsFilterOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-2 text-xs font-bold rounded-xl transition-colors ${
+                            selectedCategory === cat
+                              ? (store.isDark ? 'bg-white text-black' : 'bg-black text-white')
+                              : (store.isDark ? 'hover:bg-white/5 text-gray-400' : 'hover:bg-gray-50 text-gray-600')
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
         {/* Table */}
