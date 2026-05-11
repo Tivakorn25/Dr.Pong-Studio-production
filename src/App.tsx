@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDrPongStore } from './store';
-import RoomsView from './views/RoomsView';
+import RealtimeRoomsView from './views/RealtimeRoomsView';
 import EquipmentView from './views/EquipmentView';
 import RequestsView from './views/RequestsView';
 
@@ -183,7 +183,7 @@ export default function App() {
             transition={{ duration: 0.2 }}
             className="max-w-6xl mx-auto"
           >
-            {currentView === 'rooms' && <RoomsView key={roomsKey} store={store} />}
+            {currentView === 'rooms' && <RealtimeRoomsView key={roomsKey} store={store} />}
             {currentView === 'equipment' && <EquipmentView store={store} />}
             {currentView === 'requests' && <RequestsView store={store} onShowEquipment={() => setCurrentView('equipment')} />}
           </motion.div>
