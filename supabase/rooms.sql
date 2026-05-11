@@ -1,5 +1,6 @@
 -- Rooms table for the realtime dashboard.
 -- Run this in Supabase SQL Editor, then enable Realtime for "public.rooms".
+-- For equipment, room sections, checklist items, and requests, run `schema.sql` too.
 
 create table if not exists public.rooms (
   id uuid primary key default gen_random_uuid(),

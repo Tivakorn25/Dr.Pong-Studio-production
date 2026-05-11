@@ -12,8 +12,9 @@ import {
   Moon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { AppDataProvider } from '@/src/features/app/AppDataContext';
 import { useDrPongStore } from './store';
-import RealtimeRoomsView from './views/RealtimeRoomsView';
+import StudioRoomsView from './views/StudioRoomsView';
 import EquipmentView from './views/EquipmentView';
 import RequestsView from './views/RequestsView';
 
@@ -47,6 +48,7 @@ export default function App() {
   }
 
   return (
+    <AppDataProvider>
     <div className={`flex h-screen font-sans transition-colors duration-300 ${isDark ? 'bg-black text-gray-100 dark' : 'bg-[#F5F5F5] text-[#141414]'}`}>
       {/* Sidebar */}
       <AnimatePresence mode="wait">
@@ -183,13 +185,14 @@ export default function App() {
             transition={{ duration: 0.2 }}
             className="max-w-6xl mx-auto"
           >
-            {currentView === 'rooms' && <RealtimeRoomsView key={roomsKey} store={store} />}
+            {currentView === 'rooms' && <StudioRoomsView key={roomsKey} store={store} />}
             {currentView === 'equipment' && <EquipmentView store={store} />}
             {currentView === 'requests' && <RequestsView store={store} onShowEquipment={() => setCurrentView('equipment')} />}
           </motion.div>
         </div>
       </main>
     </div>
+    </AppDataProvider>
   );
 }
 

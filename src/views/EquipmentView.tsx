@@ -13,10 +13,17 @@ import {
   Box
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Equipment, useDrPongStore } from '../store';
+import { useAppData } from '@/src/features/app/AppDataContext';
+import {
+  deleteEquipmentRow,
+  insertEquipment,
+  updateEquipmentRow,
+} from '@/src/features/app/equipmentDbApi';
+import type { Equipment } from '../store';
+import { useDrPongStore } from '../store';
 
 export default function EquipmentView({ store }: { store: ReturnType<typeof useDrPongStore> }) {
-  const { equipment, setEquipment } = store;
+  const { equipment, refresh } = useAppData();
   const [isAdding, setIsAdding] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -34,31 +41,39 @@ export default function EquipmentView({ store }: { store: ReturnType<typeof useD
 
   const [editingItem, setEditingItem] = useState<Equipment | null>(null);
 
-  const addEquipment = () => {
+  const addEquipment = async () => {
     if (!form.name || !form.category) return;
-    const newEquip: Equipment = {
-      id: Date.now().toString(),
-      name: form.name,
-      category: form.category,
-      totalQuantity: form.totalQuantity || 1,
-      availableQuantity: form.availableQuantity || form.totalQuantity || 1
-    };
-    setEquipment([...equipment, newEquip]);
-    setIsAdding(false);
-    setForm({ name: '', category: 'Camera', totalQuantity: 1, availableQuantity: 1 });
+    try {
+      await insertEquipment({
+        name: form.name,
+        category: form.category,
+        totalQuantity: form.totalQuantity || 1,
+        availableQuantity: form.availableQuantity ?? form.totalQuantity ?? 1,
+      });
+      await refresh();
+      setIsAdding(false);
+      setForm({ name: '', category: 'Camera', totalQuantity: 1, availableQuantity: 1 });
+    } catch {
+      /* surface via realtime refresh; optional toast */
+    }
   };
 
-  const updateEquipment = () => {
+  const updateEquipment = async () => {
     if (!editingItem || !form.name) return;
-    setEquipment(equipment.map(e => e.id === editingItem.id ? {
-      ...e,
-      name: form.name!,
-      category: form.category!,
-      totalQuantity: form.totalQuantity!,
-      availableQuantity: form.availableQuantity!
-    } : e));
-    setEditingItem(null);
-    setForm({ name: '', category: 'Camera', totalQuantity: 1, availableQuantity: 1 });
+    try {
+      await updateEquipmentRow({
+        id: editingItem.id,
+        name: form.name,
+        category: form.category!,
+        totalQuantity: form.totalQuantity!,
+        availableQuantity: form.availableQuantity!,
+      });
+      await refresh();
+      setEditingItem(null);
+      setForm({ name: '', category: 'Camera', totalQuantity: 1, availableQuantity: 1 });
+    } catch {
+      /* ignore */
+    }
   };
 
   const startEdit = (item: Equipment) => {
@@ -71,8 +86,13 @@ export default function EquipmentView({ store }: { store: ReturnType<typeof useD
     });
   };
 
-  const deleteEquipment = (id: string) => {
-    setEquipment(equipment.filter(e => e.id !== id));
+  const deleteEquipment = async (id: string) => {
+    try {
+      await deleteEquipmentRow(id);
+      await refresh();
+    } catch {
+      /* ignore */
+    }
   };
 
   const filteredEquipment = equipment.filter(e => {
@@ -243,7 +263,7 @@ export default function EquipmentView({ store }: { store: ReturnType<typeof useD
                           <Edit2 size={16} />
                         </button>
                         <button 
-                          onClick={() => deleteEquipment(item.id)}
+                          onClick={() => void deleteEquipment(item.id)}
                           className={`p-2 rounded-lg transition-colors ${
                             store.isDark ? 'hover:bg-red-500/10 text-red-500' : 'hover:bg-red-50 text-red-500'
                           }`}
@@ -364,7 +384,7 @@ export default function EquipmentView({ store }: { store: ReturnType<typeof useD
                   ยกเลิก
                 </button>
                 <button 
-                  onClick={editingItem ? updateEquipment : addEquipment}
+                  onClick={() => void (editingItem ? updateEquipment() : addEquipment())}
                   className={`flex-1 px-8 py-4 rounded-2xl font-bold font-bold transition-all active:scale-95 ${
                     store.isDark ? 'bg-white text-black' : 'bg-black text-white shadow-xl shadow-black/10 hover:shadow-black/20'
                   }`}

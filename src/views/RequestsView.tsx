@@ -13,7 +13,14 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { RequestItem, RequestStatus, useDrPongStore } from '../store';
+import { useAppData } from '@/src/features/app/AppDataContext';
+import {
+  deleteEquipmentRequest,
+  insertEquipmentRequest,
+  updateEquipmentRequestStatus,
+} from '@/src/features/app/requestsDbApi';
+import { syncInventoryFromRequest } from '@/src/features/app/studioRoomsApi';
+import { RequestStatus, useDrPongStore } from '../store';
 
 export default function RequestsView({ 
   store, 
@@ -22,32 +29,10 @@ export default function RequestsView({
   store: ReturnType<typeof useDrPongStore>,
   onShowEquipment?: () => void 
 }) {
-  const { requests, setRequests, equipment, setEquipment } = store;
+  const { requests, equipment, refresh } = useAppData();
   const [isAdding, setIsAdding] = useState(false);
   
   const categories = ['Camera', 'Lens', 'Lighting', 'Audio', 'Grip', 'Accessory'];
-
-  // Helper to sync request item to inventory
-  const syncToInventory = (name: string, qty: number, category: string) => {
-    const existing = equipment.find(e => e.name.toLowerCase() === name.toLowerCase());
-    if (existing) {
-      setEquipment(equipment.map(e => e.id === existing.id ? {
-        ...e,
-        totalQuantity: e.totalQuantity + qty,
-        availableQuantity: e.availableQuantity + qty
-      } : e));
-    } else {
-      const newEquip = {
-        id: Date.now().toString(),
-        name,
-        category: category || 'Accessory',
-        totalQuantity: qty,
-        availableQuantity: qty,
-        status: 'Available' as const
-      };
-      setEquipment([...equipment, newEquip]);
-    }
-  };
 
   // New Request Form
   const [reqForm, setReqForm] = useState({
@@ -58,32 +43,30 @@ export default function RequestsView({
     status: RequestStatus.PENDING
   });
 
-  const addRequest = () => {
+  const addRequest = async () => {
     if (!reqForm.equipmentName.trim() || !reqForm.requestedBy.trim()) return;
 
-    // Find if it matches existing equipment for ID linking
     const matchedEquipment = equipment.find(e => e.name.toLowerCase() === reqForm.equipmentName.toLowerCase());
 
-    const newReq: RequestItem = {
-      id: Date.now().toString(),
-      equipmentId: matchedEquipment ? matchedEquipment.id : 'manual-' + Date.now(),
-      equipmentName: reqForm.equipmentName,
-      category: reqForm.category,
-      quantity: reqForm.quantity,
-      requestDate: new Date().toLocaleDateString('th-TH', { 
-        year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
-      }),
-      status: reqForm.status,
-      requestedBy: reqForm.requestedBy
-    };
-    
-    // If approved immediately, sync to inventory and DON'T add to list
     if (reqForm.status === RequestStatus.APPROVED) {
-      syncToInventory(reqForm.equipmentName, reqForm.quantity, reqForm.category);
+      await syncInventoryFromRequest({
+        equipmentName: reqForm.equipmentName.trim(),
+        quantity: reqForm.quantity,
+        category: reqForm.category,
+        existingEquipmentId: matchedEquipment?.id ?? null,
+      });
     } else {
-      setRequests([newReq, ...requests]);
+      await insertEquipmentRequest({
+        equipmentId: matchedEquipment?.id ?? null,
+        equipmentName: reqForm.equipmentName.trim(),
+        category: reqForm.category,
+        quantity: reqForm.quantity,
+        requestedBy: reqForm.requestedBy.trim(),
+        status: reqForm.status,
+      });
     }
 
+    await refresh();
     setIsAdding(false);
     setReqForm({ 
       equipmentName: '', 
@@ -94,26 +77,35 @@ export default function RequestsView({
     });
   };
 
-  const updateStatus = (id: string, status: RequestStatus) => {
+  const updateStatus = async (id: string, status: RequestStatus) => {
     if (status === RequestStatus.APPROVED) {
       const req = requests.find(r => r.id === id);
       if (req) {
-        syncToInventory(req.equipmentName, req.quantity, req.category);
-        // Remove from list immediately upon approval
-        setRequests(requests.filter(r => r.id !== id));
+        await syncInventoryFromRequest({
+          equipmentName: req.equipmentName,
+          quantity: req.quantity,
+          category: req.category,
+          existingEquipmentId: req.equipmentId.startsWith('manual-') ? null : req.equipmentId,
+        });
+        await deleteEquipmentRequest(id);
+        await refresh();
         return;
       }
     }
-    setRequests(requests.map(r => r.id === id ? { ...r, status } : r));
+    await updateEquipmentRequestStatus(id, status);
+    await refresh();
   };
 
-  const deleteRequest = (id: string) => {
-    setRequests(requests.filter(r => r.id !== id));
+  const deleteRequest = async (id: string) => {
+    await deleteEquipmentRequest(id);
+    await refresh();
   };
 
   const statusMap = {
     [RequestStatus.PENDING]: { icon: <Clock size={16} />, label: 'รอดำเนินการ', color: 'bg-amber-100 text-amber-700' },
     [RequestStatus.APPROVED]: { icon: <CheckCircle size={16} />, label: 'อนุมัติแล้ว', color: 'bg-blue-100 text-blue-700' },
+    [RequestStatus.READY]: { icon: <Package size={16} />, label: 'พร้อมรับ', color: 'bg-emerald-100 text-emerald-700' },
+    [RequestStatus.RETURNED]: { icon: <RotateCcw size={16} />, label: 'คืนแล้ว', color: 'bg-gray-100 text-gray-700' },
   };
 
   return (
@@ -136,7 +128,9 @@ export default function RequestsView({
 
       <div className="grid grid-cols-1 gap-4">
         <AnimatePresence>
-          {requests.map((request) => (
+          {requests.map((request) => {
+            const reqStatusCfg = statusMap[request.status] ?? statusMap[RequestStatus.PENDING];
+            return (
             <motion.div
               layout
               key={request.id}
@@ -151,10 +145,10 @@ export default function RequestsView({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                    store.isDark ? 'bg-white/5 border border-white/10' : statusMap[request.status].color
+                    store.isDark ? 'bg-white/5 border border-white/10' : reqStatusCfg.color
                   } ${store.isDark && request.status === RequestStatus.PENDING ? 'text-amber-400' : store.isDark ? 'text-blue-400' : ''}`}>
-                    {statusMap[request.status].icon}
-                    {statusMap[request.status].label}
+                    {reqStatusCfg.icon}
+                    {reqStatusCfg.label}
                   </span>
                   <span className="text-[10px] text-gray-400 font-mono">#{request.id.slice(-6)}</span>
                 </div>
@@ -181,7 +175,7 @@ export default function RequestsView({
                 {Object.entries(statusMap).map(([status, config]) => (
                   <button
                     key={status}
-                    onClick={() => updateStatus(request.id, status as RequestStatus)}
+                    onClick={() => void updateStatus(request.id, status as RequestStatus)}
                     className={`flex-shrink-0 p-2.5 rounded-xl transition-all border ${
                       request.status === status 
                         ? (store.isDark ? 'bg-white text-black border-white' : 'bg-black text-white border-black shadow-lg shadow-black/10') 
@@ -196,7 +190,7 @@ export default function RequestsView({
               {/* General Actions */}
               <div className={`flex items-center gap-2 pt-4 md:pt-0 border-t md:border-t-0 md:border-l md:pl-6 transition-colors ${store.isDark ? 'border-gray-800' : 'border-gray-100'}`}>
                 <button 
-                  onClick={() => deleteRequest(request.id)}
+                  onClick={() => void deleteRequest(request.id)}
                   className={`p-3 rounded-xl transition-all ${
                     store.isDark ? 'text-gray-500 hover:text-red-500 hover:bg-red-500/10' : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
                   }`}
@@ -205,7 +199,8 @@ export default function RequestsView({
                 </button>
               </div>
             </motion.div>
-          ))}
+          );
+          })}
         </AnimatePresence>
 
         {requests.length === 0 && (
@@ -363,7 +358,7 @@ export default function RequestsView({
                   ยกเลิก
                 </button>
                 <button 
-                  onClick={addRequest}
+                  onClick={() => void addRequest()}
                   className={`flex-1 px-8 py-4 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
                     store.isDark ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white shadow-xl shadow-black/10 hover:shadow-black/20'
                   }`}
