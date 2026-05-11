@@ -31,6 +31,8 @@ export default function App() {
       setRoomsKey(prev => prev + 1);
     }
     setCurrentView(view);
+    // Close sidebar after selection as requested
+    setIsSidebarOpen(false);
   };
 
   if (!store.isLoaded) {
