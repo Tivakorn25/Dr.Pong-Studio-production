@@ -104,8 +104,8 @@ export default function RequestsView({
   const statusMap = {
     [RequestStatus.PENDING]: { icon: <Clock size={16} />, label: 'รอดำเนินการ', color: 'bg-amber-100 text-amber-700' },
     [RequestStatus.APPROVED]: { icon: <CheckCircle size={16} />, label: 'อนุมัติแล้ว', color: 'bg-blue-100 text-blue-700' },
-    [RequestStatus.READY]: { icon: <Package size={16} />, label: 'พร้อมรับ', color: 'bg-emerald-100 text-emerald-700' },
-    [RequestStatus.RETURNED]: { icon: <RotateCcw size={16} />, label: 'คืนแล้ว', color: 'bg-gray-100 text-gray-700' },
+
+
   };
 
   return (
