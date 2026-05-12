@@ -354,7 +354,7 @@ export default function EquipmentView({ store }: { store: ReturnType<typeof useD
                 </div>
               </div>
 
-              {editingItem && (
+              {(editingItem || isAdding) && (
                 <div>
                   <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mb-2 text-right">จำนวนที่พร้อมใช้</label>
                   <div className="relative">
@@ -363,7 +363,7 @@ export default function EquipmentView({ store }: { store: ReturnType<typeof useD
                       type="number" 
                       value={form.availableQuantity}
                       onChange={(e) => setForm({...form, availableQuantity: parseInt(e.target.value) || 0})}
-                      className={`w-full border-none rounded-2xl p-4 pl-12 text-xl font-black text-center outline-none transition-all shadow-inner ${
+                      className={`w-full border-none rounded-[28px] bg-[#f5f5f5] p-4 pl-12 text-center text-xl font-bold outline-none transition-all shadow-inner ${
                         store.isDark ? 'bg-black text-green-400 focus:ring-2 focus:ring-gray-700' : 'bg-gray-50 text-green-600 focus:ring-2 focus:ring-black'
                       }`}
                     />
@@ -377,7 +377,7 @@ export default function EquipmentView({ store }: { store: ReturnType<typeof useD
                     setIsAdding(false);
                     setEditingItem(null);
                   }}
-                  className={`flex-1 px-8 py-4 rounded-2xl font-bold transition-all ${
+                  className={`flex-1 px-8 py-4 rounded-[28px] bg-[#f3f3f3] font-bold transition-all shadow-xl ${
                     store.isDark ? 'text-gray-400 hover:bg-white/5 hover:text-white' : 'text-gray-400 hover:text-black hover:bg-gray-100'
                   }`}
                 >
